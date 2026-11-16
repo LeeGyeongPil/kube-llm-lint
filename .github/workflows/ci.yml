@@ -1,0 +1,20 @@
+# Tests are fully offline: no cluster, GPU or API key is needed.
+name: ci
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 1"   # every Monday: catch breakage from dependency or runtime updates
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv sync --locked --python ${{ matrix.python }}
+      - run: uv run --python ${{ matrix.python }} pytest -q
