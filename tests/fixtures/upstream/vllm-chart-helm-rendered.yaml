@@ -1,0 +1,111 @@
+# Source: vLLM examples/deployment/chart-helm (chart-vllm 0.0.2), default values.
+# https://github.com/vllm-project/vllm/tree/main/examples/deployment/chart-helm
+# Rendered BY HAND on 2026-11-16 with release name "test" in namespace "default",
+# because `helm template` could not be installed in the build sandbox. The values
+# come from the chart's values.yaml and the layout from templates/deployment.yaml.
+# Copyright vLLM contributors, Apache-2.0 (see NOTICE).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "test-deployment-vllm"
+  namespace: default
+  labels:
+    environment: test
+    release: test
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      environment: test
+      release: test
+  progressDeadlineSeconds: 1200
+  template:
+    metadata:
+      labels:
+        environment: test
+        release: test
+    spec:
+      containers:
+        - name: "vllm"
+          image: "vllm/vllm-openai:latest"
+          command:
+            - vllm
+            - serve
+            - /data/
+            - --served-model-name
+            - opt-125m
+            - --enforce-eager
+            - --dtype
+            - bfloat16
+            - --block-size
+            - "16"
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8000"
+          securityContext:
+            runAsNonRoot: false
+          imagePullPolicy: IfNotPresent
+          env: []
+          ports:
+            - name: "container-port"
+              containerPort: 8000
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "16Gi"
+              cpu: "4"
+              nvidia.com/gpu: "1"
+            limits:
+              memory: "16Gi"
+              cpu: "4"
+              nvidia.com/gpu: "1"
+          volumeMounts:
+          - name: test-storage
+            mountPath: /data
+      initContainers:
+      - name: wait-download-model
+        image: amazon/aws-cli:2.6.4
+        imagePullPolicy: IfNotPresent
+        command: ["/bin/bash"]
+        args:
+          - -eucx
+          - while aws --endpoint-url $S3_ENDPOINT_URL s3 sync --dryrun s3://$S3_BUCKET_NAME/$S3_PATH /data | grep -q download; do sleep 10; done
+        env:
+          - name: S3_PATH
+            value: "relative_s3_model_path/opt-125m"
+        volumeMounts:
+        - name: test-storage
+          mountPath: /data
+      volumes:
+        - name: test-storage
+          persistentVolumeClaim:
+            claimName: test-storage-claim
+      runtimeClassName: nvidia
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: nvidia.com/gpu.product
+                  operator: In
+                  values:
+                    - "TYPE_GPU_USED"
