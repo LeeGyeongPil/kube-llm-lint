@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-11-16
+
+### Added
+- `--format sarif` prints a SARIF 2.1.0 log (standard library only); exit codes are unchanged.
+
 ## [0.1.1] - 2026-11-16
 
 ### Fixed
