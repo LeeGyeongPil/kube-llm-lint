@@ -68,3 +68,41 @@ def test_fix_snippet_keeps_exec_handler():
     extra = "livenessProbe: {exec: {command: [cat, /tmp/ok]}}\n"
     snippet = YAML(typ="safe").load(probes(extra)[0].fix)["startupProbe"]
     assert snippet["exec"] == {"command": ["cat", "/tmp/ok"]}
+
+
+import pytest
+
+PROBE_KEYS = ["initialDelaySeconds", "periodSeconds", "failureThreshold"]
+
+
+def _probe_extra(kind: str, key: str, value: str) -> str:
+    probe = f"{kind}: {{httpGet: {{path: /health, port: 8000}}, {key}: {value}}}\n"
+    return probe
+
+
+@pytest.mark.parametrize("key", PROBE_KEYS)
+@pytest.mark.parametrize("value", ["null", "~", ""])
+def test_null_values_use_defaults_liveness(key, value):
+    found = probes(_probe_extra("livenessProbe", key, value))
+    assert [(f.rule, f.data["budget"]) for f in found] == [("no-startup-probe", 30)]
+
+
+@pytest.mark.parametrize("key", PROBE_KEYS)
+@pytest.mark.parametrize("value", ["null", "~", ""])
+def test_null_values_use_defaults_startup(key, value):
+    found = probes(_probe_extra("startupProbe", key, value))
+    assert [(f.rule, f.data["budget"]) for f in found] == [("probe-budget-short", 30)]
+
+
+@pytest.mark.parametrize("kind,rule_arg", [("livenessProbe", "livenessProbe"),
+                                           ("startupProbe", "startupProbe")])
+@pytest.mark.parametrize("key", PROBE_KEYS)
+def test_non_numeric_value_reports_arg_unresolved(kind, rule_arg, key):
+    found = probes(_probe_extra(kind, key, "abc"))
+    assert [f.rule for f in found] == ["arg-unresolved"]
+    assert f"{rule_arg}.{key}" in found[0].message
+
+
+def test_zero_delay_unchanged():
+    found = probes(_probe_extra("livenessProbe", "initialDelaySeconds", "0"))
+    assert [(f.rule, f.data["budget"]) for f in found] == [("no-startup-probe", 30)]

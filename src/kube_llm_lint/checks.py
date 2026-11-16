@@ -72,17 +72,42 @@ class LintResult:
 # ---------------------------------------------------------------- helpers
 
 
+PROBE_DEFAULTS = (("initialDelaySeconds", 0), ("periodSeconds", 10), ("failureThreshold", 3))
+
+
+def probe_value(probe: Any, key: str, default: int) -> int:
+    """Read a probe number; a missing key or a null value means the Kubernetes default.
+
+    Raises ``ValueError``/``TypeError`` when the value is not a number.
+    """
+    value = probe.get(key)
+    return default if value is None else int(value)
+
+
 def probe_budget(probe: Any) -> int | None:
     """Seconds the kubelet waits before acting: delay + period x failureThreshold."""
     if not hasattr(probe, "get"):
         return None
     try:
-        delay = int(probe.get("initialDelaySeconds", 0))
-        period = int(probe.get("periodSeconds", 10))
-        threshold = int(probe.get("failureThreshold", 3))
+        delay, period, threshold = (probe_value(probe, k, d) for k, d in PROBE_DEFAULTS)
     except (TypeError, ValueError):
         return None
     return delay + period * threshold
+
+
+def _probe_numbers(ctx: "_Context", probe: Any, name: str) -> tuple[int, int, int] | None:
+    """Delay, period and threshold of a probe, or ``None`` after reporting a bad value."""
+    if not hasattr(probe, "get"):
+        return None
+    numbers = []
+    for key, default in PROBE_DEFAULTS:
+        try:
+            numbers.append(probe_value(probe, key, default))
+        except (TypeError, ValueError):
+            ctx.emit("arg-unresolved", "msg.arg-unresolved",
+                     arg=f"{name}.{key}", value=str(probe.get(key)))
+            return None
+    return numbers[0], numbers[1], numbers[2]
 
 
 def gpu_resources(container: Any) -> tuple[int | None, str | None, str | None]:
@@ -261,20 +286,22 @@ def _check_probes(ctx: _Context) -> None:
     target = ctx.options.startup_budget
     lang = ctx.options.lang
     if startup is None:
-        budget = probe_budget(liveness)
-        if budget is not None and budget < target:
+        numbers = _probe_numbers(ctx, liveness, "livenessProbe")
+        if numbers is None:
+            return
+        budget = numbers[0] + numbers[1] * numbers[2]
+        if budget < target:
             ctx.emit("no-startup-probe", "msg.no-startup-probe",
                      fixes.startup_probe(lang, liveness, target),
                      data={"budget": budget, "target": target},
                      budget=budget, target=target)
         return
-    budget = probe_budget(startup)
-    if budget is not None and budget < target:
-        try:
-            delay = int(startup.get("initialDelaySeconds", 0))
-            period = int(startup.get("periodSeconds", 10))
-        except (TypeError, ValueError):
-            delay, period = 0, 10
+    numbers = _probe_numbers(ctx, startup, "startupProbe")
+    if numbers is None:
+        return
+    delay, period, threshold = numbers
+    budget = delay + period * threshold
+    if budget < target:
         ctx.emit("probe-budget-short", "msg.probe-budget-short",
                  fixes.startup_probe(lang, startup, target, initial_delay=delay, period=period),
                  data={"budget": budget, "target": target}, budget=budget, target=target)
