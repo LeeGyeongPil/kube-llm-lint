@@ -48,7 +48,7 @@ The fixed version passes:
 | Command / option | What it does | Example |
 |---|---|---|
 | `PATH ...` | Files, directories (searched recursively for `*.yaml`/`*.yml`) or `-` for stdin | `kube-llm-lint deploy/` |
-| `--format text\|json` | Human-readable report (default) or JSON | `--format json` |
+| `--format text\|json\|sarif` | Human-readable report (default), JSON or SARIF 2.1.0 | `--format sarif` |
 | `--fail-on error\|warning\|info\|none` | Lowest severity that makes the exit code 1 (default `error`) | `--fail-on warning` |
 | `--startup-budget SECONDS` | Time a container may take to become healthy (default 600) | `--startup-budget 1200` |
 | `--disable RULES` | Comma-separated rule ids to turn off | `--disable shm-missing,gpu-missing` |
@@ -78,6 +78,35 @@ Rendered output is read from stdin (`-`), so the check sees what the cluster wil
 kube-llm-lint examples/broken.yaml --format json --fail-on warning
 ```
 Prints `{"findings": [...], "summary": {"errors": 6, "warnings": 2, "info": 0, "containers": 3, "files": 1}}`; each finding has `file`, `line`, `kind`, `name`, `namespace`, `container`, `server`, `rule`, `severity`, `message` and `fix`.
+
+### Upload to code scanning (SARIF)
+```bash
+kube-llm-lint manifests/ --format sarif --fail-on none > kube-llm-lint.sarif
+```
+Then upload `kube-llm-lint.sarif` with GitHub's `github/codeql-action/upload-sarif` step to see findings as line annotations.
+
+A complete workflow, for example `.github/workflows/kube-llm-lint.yml` (change `manifests/` to your folder):
+
+```yaml
+name: kube-llm-lint
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # required by upload-sarif
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv tool install git+https://github.com/LeeGyeongPil/kube-llm-lint
+      # --fail-on none keeps the exit code 0, so the upload step still runs when there are findings
+      - run: kube-llm-lint manifests/ --format sarif --fail-on none > kube-llm-lint.sarif
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: kube-llm-lint.sarif
+```
+Findings appear under the repository's Security tab and as annotations on pull requests. Public repositories need nothing else; private repositories need code scanning enabled (GitHub Code Security).
 
 ### Silence one rule on one workload
 ```yaml
@@ -159,7 +188,7 @@ Even `env-var-secret` did not flag the plaintext `HF_TOKEN`, because it matches 
 - Server flag names and defaults change between versions. The flag tables were checked on 2026-11-16 (see `--list-rules`).
 
 ## Roadmap
-Ideas, not promises: SARIF output, a ready-made GitHub Action, a pre-commit hook, KServe `InferenceService` support.
+Ideas, not promises: a ready-made GitHub Action, a pre-commit hook, KServe `InferenceService` support.
 
 ## Troubleshooting
 | Symptom | Cause | Fix |

@@ -48,7 +48,7 @@ examples/broken.yaml:20: error   gpu-parallel-mismatch  [Deployment/llama-70b / 
 | 명령·옵션 | 하는 일 | 예 |
 |---|---|---|
 | `PATH ...` | 파일, 디렉터리(`*.yaml`·`*.yml` 을 재귀 탐색), 표준 입력은 `-` | `kube-llm-lint deploy/` |
-| `--format text\|json` | 읽기 쉬운 보고서(기본) 또는 JSON | `--format json` |
+| `--format text\|json\|sarif` | 읽기 쉬운 보고서(기본), JSON 또는 SARIF 2.1.0 | `--format sarif` |
 | `--fail-on error\|warning\|info\|none` | 종료 코드를 1 로 만드는 가장 낮은 심각도(기본 `error`) | `--fail-on warning` |
 | `--startup-budget SECONDS` | 컨테이너가 정상이 되기까지 허용하는 시간(기본 600) | `--startup-budget 1200` |
 | `--disable RULES` | 끌 규칙 ID 를 쉼표로 | `--disable shm-missing,gpu-missing` |
@@ -78,6 +78,35 @@ helm template my-release ./chart | kube-llm-lint - --fail-on warning
 kube-llm-lint examples/broken.yaml --format json --fail-on warning
 ```
 `{"findings": [...], "summary": {"errors": 6, "warnings": 2, "info": 0, "containers": 3, "files": 1}}` 를 출력합니다. 각 항목은 `file`, `line`, `kind`, `name`, `namespace`, `container`, `server`, `rule`, `severity`, `message`, `fix` 를 가집니다.
+
+### code scanning 에 올리기 (SARIF)
+```bash
+kube-llm-lint manifests/ --format sarif --fail-on none > kube-llm-lint.sarif
+```
+만들어진 `kube-llm-lint.sarif` 를 GitHub 의 `github/codeql-action/upload-sarif` 단계로 올리면 지적이 줄 단위 주석으로 보입니다.
+
+그대로 쓸 수 있는 워크플로 전체 예입니다. 예를 들어 `.github/workflows/kube-llm-lint.yml` 로 저장하고 `manifests/` 를 내 폴더로 바꾸세요.
+
+```yaml
+name: kube-llm-lint
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # upload-sarif 에 필요
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv tool install git+https://github.com/LeeGyeongPil/kube-llm-lint
+      # --fail-on none 이면 종료 코드가 0 이라, 지적이 있어도 업로드 단계가 실행됩니다
+      - run: kube-llm-lint manifests/ --format sarif --fail-on none > kube-llm-lint.sarif
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: kube-llm-lint.sarif
+```
+지적은 레포의 Security 탭과 PR 의 줄 단위 주석으로 보입니다. 공개 레포는 따로 할 일이 없고, 비공개 레포는 code scanning(GitHub Code Security)을 켜야 업로드가 받아들여집니다.
 
 ### 워크로드 하나에서 규칙 하나 끄기
 ```yaml
@@ -159,7 +188,7 @@ kube-linter lint --add-all-built-in bad.yaml   # 내장 63개 전부: 여전히 
 - 서버 플래그 이름과 기본값은 버전마다 바뀝니다. 플래그 표는 2026-11-16 에 확인했습니다(`--list-rules` 참고).
 
 ## 로드맵
-약속이 아닌 아이디어: SARIF 출력, 바로 쓰는 GitHub Action, pre-commit 훅, KServe `InferenceService` 지원.
+약속이 아닌 아이디어: 바로 쓰는 GitHub Action, pre-commit 훅, KServe `InferenceService` 지원.
 
 ## 자주 겪는 문제
 | 증상 | 원인 | 해결 |
