@@ -75,7 +75,7 @@ def build_parser(lang: str) -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"kube-llm-lint {__version__}",
                         help=t(lang, "help.version"))
     parser.add_argument("--lang", choices=LANGUAGES, help=t(lang, "help.lang"))
-    parser.add_argument("--format", choices=("text", "json"), default="text",
+    parser.add_argument("--format", choices=("text", "json", "sarif"), default="text",
                         help=t(lang, "help.format"))
     parser.add_argument("--fail-on", choices=FAIL_LEVELS, default="error",
                         help=t(lang, "help.fail_on"))
@@ -129,6 +129,8 @@ def main(argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = 
     result = lint_documents(docs, options, files_read)
     if args.format == "json":
         sys.stdout.write(report.render_json(result, lang))
+    elif args.format == "sarif":
+        sys.stdout.write(report.render_sarif(result, lang))
     else:
         color = sys.stdout.isatty() and "NO_COLOR" not in env
         sys.stdout.write(report.render_text(result, lang, color))

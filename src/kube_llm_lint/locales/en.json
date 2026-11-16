@@ -8,7 +8,7 @@
   "help.help": "show this help message and exit",
   "help.version": "show the version and exit",
   "help.lang": "output language (default: KUBE_LLM_LINT_LANG, then LC_ALL, LC_MESSAGES, LANG; English unless it starts with ko)",
-  "help.format": "report format: text (default) or json",
+  "help.format": "report format: text (default), json or sarif (SARIF 2.1.0)",
   "help.fail_on": "lowest severity that makes the exit code 1: error (default), warning, info or none",
   "help.startup_budget": "seconds a container may take to become healthy before probes restart it (default: {default})",
   "help.disable": "comma-separated rule ids to turn off, for example shm-missing,gpu-missing",

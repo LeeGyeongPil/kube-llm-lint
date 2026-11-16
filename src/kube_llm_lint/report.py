@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 
-from . import rules
+from . import __version__, rules
 from .checks import LintResult
 from .i18n import t
 
@@ -53,6 +53,62 @@ def render_json(result: LintResult, lang: str) -> str:
             "containers": result.containers,
             "files": result.files,
         },
+    }
+    return json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+
+
+SARIF_SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
+INFORMATION_URI = "https://github.com/LeeGyeongPil/kube-llm-lint"
+_SARIF_LEVELS = {rules.ERROR: "error", rules.WARNING: "warning", rules.INFO: "note"}
+
+
+def _sarif_uri(name: str) -> str:
+    """Return a URI-safe artifact name ('<stdin>' has characters a URI cannot hold)."""
+    return "stdin" if name == "<stdin>" else name
+
+
+def render_sarif(result: LintResult, lang: str) -> str:
+    """SARIF 2.1.0 log (for example for GitHub code scanning)."""
+    index = {rule.id: i for i, rule in enumerate(rules.RULES)}
+    driver_rules = [
+        {
+            "id": rule.id,
+            "shortDescription": {"text": t(lang, "rule." + rule.id)},
+            "helpUri": rule.source,
+            "defaultConfiguration": {"level": _SARIF_LEVELS[rule.severity]},
+            "properties": {"sources": list(rule.sources)},
+        }
+        for rule in rules.RULES
+    ]
+    results = []
+    for f in result.findings:
+        text = f.message
+        if f.fix:
+            text += "\n\n" + t(lang, "report.fix") + "\n" + f.fix.rstrip("\n")
+        results.append({
+            "ruleId": f.rule,
+            "ruleIndex": index[f.rule],
+            "level": _SARIF_LEVELS[f.severity],
+            "message": {"text": text},
+            "locations": [{
+                "physicalLocation": {
+                    "artifactLocation": {"uri": _sarif_uri(f.file)},
+                    "region": {"startLine": max(f.line, 1)},
+                },
+            }],
+        })
+    payload = {
+        "$schema": SARIF_SCHEMA,
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {
+                "name": "kube-llm-lint",
+                "version": __version__,
+                "informationUri": INFORMATION_URI,
+                "rules": driver_rules,
+            }},
+            "results": results,
+        }],
     }
     return json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
 
