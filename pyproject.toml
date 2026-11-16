@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kube-llm-lint"
-version = "0.1.0"
+version = "0.1.1"
 description = "Offline linter that cross-checks vLLM, SGLang and TGI server arguments against the Kubernetes pod spec (GPU count, /dev/shm, probe budget, HF cache, token)."
 readme = "README.md"
 license = { text = "MIT" }

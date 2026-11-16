@@ -131,7 +131,7 @@ flowchart LR
 1. 로더가 줄 번호를 유지해서, 지적이 파일 전체가 아니라 컨테이너를 가리킵니다.
 2. 워크로드 종류마다 파드 스펙의 위치를 찾습니다.
 3. 컨테이너마다 서버(`vllm serve`, `sglang.launch_server`, `text-generation-launcher`, 없으면 이미지 이름)를 알아낸 뒤 `command`·`args`(`sh -c` 문자열, `env` 의 리터럴 값으로 채우는 `$(VAR)`·`$VAR` 포함)에서 인자를 읽습니다.
-4. 규칙이 그 인자를 파드 스펙과 비교합니다. 프로브 예산은 `initialDelaySeconds + periodSeconds x failureThreshold` 입니다.
+4. 규칙이 그 인자를 파드 스펙과 비교합니다. 프로브 예산은 `initialDelaySeconds + periodSeconds x failureThreshold` 입니다. YAML `null` 이거나 값 없이 키만 있으면 Kubernetes 기본값(0, 10, 3)을 쓰고, 빈 문자열 `""` 이나 숫자가 아닌 값은 `arg-unresolved` 로 알립니다.
 5. 풀 수 없는 값(예: ConfigMap 에서 오는 값)은 추측하지 않고 `arg-unresolved` 정보를 내며 그 값이 필요한 검사는 건너뜁니다.
 6. 보고서는 토큰 값을 절대 출력하지 않고 `hf_****` 만 보여 줍니다.
 

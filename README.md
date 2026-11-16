@@ -131,7 +131,7 @@ flowchart LR
 1. The loader keeps line numbers so a finding points at the container, not just the file.
 2. It finds the pod spec inside each workload kind.
 3. For each container it recognises the server (`vllm serve`, `sglang.launch_server`, `text-generation-launcher`, or the image name), then reads its arguments from `command` and `args`, including `sh -c` strings and `$(VAR)` or `$VAR` taken from literal `env` values.
-4. Rules compare those arguments with the pod spec. The probe budget is `initialDelaySeconds + periodSeconds x failureThreshold`.
+4. Rules compare those arguments with the pod spec. The probe budget is `initialDelaySeconds + periodSeconds x failureThreshold`. A YAML `null` or valueless probe field (key with no value) uses the Kubernetes default (0, 10, 3); an empty string `""` or a non-numeric value is reported as `arg-unresolved`.
 5. Values that cannot be resolved (for example from a ConfigMap) produce an `arg-unresolved` info and the checks that need them are skipped rather than guessed.
 6. The report never prints a token value, only `hf_****`.
 

@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-11-16
+
+### Fixed
+- Probe checks no longer skip silently when `initialDelaySeconds`, `periodSeconds` or `failureThreshold` is YAML null or valueless (Kubernetes defaults 0/10/3 apply); an empty string `""` or non-numeric values are reported as `arg-unresolved`.
+
 ## [0.1.0] - 2026-11-16
 
 ### Added
