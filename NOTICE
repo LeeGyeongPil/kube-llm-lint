@@ -1,0 +1,13 @@
+kube-llm-lint
+Copyright (c) 2026 LeeGyeongPil, MIT License (see LICENSE).
+
+The test fixtures under tests/fixtures/upstream/ are derived from the vLLM project
+(https://github.com/vllm-project/vllm), licensed under the Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0):
+
+  - vllm-docs-nvidia.yaml: YAML blocks from docs/deployment/k8s.md (unchanged),
+    retrieved 2026-11-16.
+  - vllm-chart-helm-rendered.yaml: default-values rendering of
+    examples/deployment/chart-helm (chart 0.0.2), rendered by hand, retrieved 2026-11-16.
+
+These files are used only as test input and are not part of the installed package.
